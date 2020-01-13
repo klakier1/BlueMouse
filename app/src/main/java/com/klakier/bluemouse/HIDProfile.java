@@ -49,7 +49,9 @@ public class HIDProfile {
             (byte) 0xC0          /* end collection */
     };
     public static byte[] HID_INFO = {0x01, 0x01, 0x00, 0x03};
-
+    public static byte[] BOOT_REPORT_DESCRIPTOR = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+    public static byte[] PROTOCOL_MODE = {0x01};
+    public static byte[] REPORT_REF = {0x00, 0x01};
 
     public static BluetoothGattService createHIDService() {
 
@@ -71,8 +73,7 @@ public class HIDProfile {
                         | BluetoothGattCharacteristic.PROPERTY_READ,
                 BluetoothGattCharacteristic.PERMISSION_READ
                         | BluetoothGattCharacteristic.PERMISSION_WRITE);
-        byte[] protocolMode = {0x01};
-        characteristicProtocolMode.setValue(protocolMode);
+        characteristicProtocolMode.setValue(PROTOCOL_MODE);
 
         characteristicReport = new BluetoothGattCharacteristic(
                 REPORT_CHARACTERISTIC,
@@ -84,8 +85,7 @@ public class HIDProfile {
         descriptorReportRef = new BluetoothGattDescriptor(
                 REPORT_REFERENCE_DESCRIPTOR,
                 0);
-        byte[] raportRef = {0x00, 0x01};
-        descriptorReportRef.setValue(raportRef);
+        descriptorReportRef.setValue(REPORT_REF);
         characteristicReport.addDescriptor(descriptorReportRef);
 
         characteristicReportMap = new BluetoothGattCharacteristic(

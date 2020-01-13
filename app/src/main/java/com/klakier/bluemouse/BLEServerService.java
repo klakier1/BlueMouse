@@ -3,10 +3,12 @@ package com.klakier.bluemouse;
 import android.app.Service;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothGatt;
 import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.BluetoothGattDescriptor;
 import android.bluetooth.BluetoothGattServer;
 import android.bluetooth.BluetoothGattServerCallback;
+import android.bluetooth.BluetoothGattService;
 import android.bluetooth.BluetoothManager;
 import android.bluetooth.BluetoothProfile;
 import android.bluetooth.le.AdvertiseCallback;
@@ -56,6 +58,7 @@ public class BLEServerService extends Service {
     };
     private BluetoothGattServerCallback mGattServerCallback = new BluetoothGattServerCallback() {
 
+
         @Override
         public void onConnectionStateChange(BluetoothDevice device, int status, int newState) {
             if (newState == BluetoothProfile.STATE_CONNECTED) {
@@ -69,7 +72,38 @@ public class BLEServerService extends Service {
 
         @Override
         public void onMtuChanged(BluetoothDevice device, int mtu) {
+            Log.d(TAG, "onMtuChanged: ");
             super.onMtuChanged(device, mtu);
+        }
+
+        @Override
+        public void onServiceAdded(int status, BluetoothGattService service) {
+            Log.d(TAG, "onServiceAdded: ");
+            super.onServiceAdded(status, service);
+        }
+
+        @Override
+        public void onExecuteWrite(BluetoothDevice device, int requestId, boolean execute) {
+            Log.d(TAG, "onExecuteWrite: ");
+            super.onExecuteWrite(device, requestId, execute);
+        }
+
+        @Override
+        public void onNotificationSent(BluetoothDevice device, int status) {
+            Log.d(TAG, "onNotificationSent: ");
+            super.onNotificationSent(device, status);
+        }
+
+        @Override
+        public void onPhyUpdate(BluetoothDevice device, int txPhy, int rxPhy, int status) {
+            Log.d(TAG, "onPhyUpdate: ");
+            super.onPhyUpdate(device, txPhy, rxPhy, status);
+        }
+
+        @Override
+        public void onPhyRead(BluetoothDevice device, int txPhy, int rxPhy, int status) {
+            Log.d(TAG, "onPhyRead: ");
+            super.onPhyRead(device, txPhy, rxPhy, status);
         }
 
         @Override
@@ -86,45 +120,58 @@ public class BLEServerService extends Service {
                     + "valLen" + value.length);
         }
 
+        ;
+
         @Override
         public void onCharacteristicReadRequest(BluetoothDevice device, int requestId, int offset,
                                                 BluetoothGattCharacteristic characteristic) {
-            Log.d(TAG, "onCharacteristicReadRequest: " + device.toString() + "char: "
+            Log.d(TAG, "onCharacteristicReadRequest: " + device.toString() + " char: "
                     + characteristic.getUuid().toString());
 
-            if( HIDProfile.HID_INFORMATION_CHARACTERISTIC.equals(characteristic.getUuid())){
+            if (HIDProfile.HID_INFORMATION_CHARACTERISTIC.equals(characteristic.getUuid())) {
                 Log.d(TAG, "onCharacteristicReadRequest: HID_INFO");
                 mBluetoothGattServer.sendResponse(device,
                         requestId,
-                        BluetoothProfile.GATT_SERVER,
+                        BluetoothGatt.GATT_SUCCESS,
                         0,
                         HIDProfile.HID_INFO);
+            } else if (HIDProfile.BOOT_INPUT_REPORT_CHARACTERISTIC.equals(characteristic.getUuid())) {
+                Log.d(TAG, "onCharacteristicReadRequest: BOOT_INPUT_REPORT");
+                mBluetoothGattServer.sendResponse(device,
+                        requestId,
+                        BluetoothGatt.GATT_SUCCESS,
+                        0,
+                        HIDProfile.BOOT_REPORT_DESCRIPTOR);
+            } else if (HIDProfile.REPORT_MAP_CHARACTERISTIC.equals(characteristic.getUuid())) {
+                Log.d(TAG, "onCharacteristicReadRequest: REPORT_MAP");
+                mBluetoothGattServer.sendResponse(device,
+                        requestId,
+                        BluetoothGatt.GATT_SUCCESS,
+                        0,
+                        HIDProfile.HID_DESCRIPTOR);
+            } else if (HIDProfile.REPORT_CHARACTERISTIC.equals(characteristic.getUuid())) {
+                Log.d(TAG, "onCharacteristicReadRequest: REPORT");
+                mBluetoothGattServer.sendResponse(device,
+                        requestId,
+                        BluetoothGatt.GATT_SUCCESS,
+                        0,
+                        null);
+            } else if (HIDProfile.PROTOCOL_MODE_CHARACTERISTIC.equals(characteristic.getUuid())) {
+                Log.d(TAG, "onCharacteristicReadRequest: PROTOCOL_MODE");
+                mBluetoothGattServer.sendResponse(device,
+                        requestId,
+                        BluetoothGatt.GATT_SUCCESS,
+                        0,
+                        HIDProfile.PROTOCOL_MODE);
+            } else{
+                // Invalid characteristic
+                Log.w(TAG, "onCharacteristicReadRequest: invalid char " + characteristic.getUuid());
+                mBluetoothGattServer.sendResponse(device,
+                        requestId,
+                        BluetoothGatt.GATT_FAILURE,
+                        0,
+                        null);
             }
-
-//            long now = System.currentTimeMillis();
-//            if (TimeProfile.CURRENT_TIME.equals(characteristic.getUuid())) {
-//                Log.i(TAG, "Read CurrentTime");
-//                mBluetoothGattServer.sendResponse(device,
-//                        requestId,
-//                        BluetoothGatt.GATT_SUCCESS,
-//                        0,
-//                        TimeProfile.getExactTime(now, TimeProfile.ADJUST_NONE));
-//            } else if (TimeProfile.LOCAL_TIME_INFO.equals(characteristic.getUuid())) {
-//                Log.i(TAG, "Read LocalTimeInfo");
-//                mBluetoothGattServer.sendResponse(device,
-//                        requestId,
-//                        BluetoothGatt.GATT_SUCCESS,
-//                        0,
-//                        TimeProfile.getLocalTimeInfo(now));
-//            } else {
-//                // Invalid characteristic
-//                Log.w(TAG, "Invalid Characteristic Read: " + characteristic.getUuid());
-//                mBluetoothGattServer.sendResponse(device,
-//                        requestId,
-//                        BluetoothGatt.GATT_FAILURE,
-//                        0,
-//                        null);
-//            }
         }
 
         @Override
