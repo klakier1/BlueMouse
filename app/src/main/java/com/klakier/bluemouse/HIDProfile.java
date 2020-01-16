@@ -50,8 +50,11 @@ public class HIDProfile {
     };
     public static byte[] HID_INFO = {0x01, 0x01, 0x00, 0x03};
     public static byte[] BOOT_REPORT_DESCRIPTOR = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+    //public static byte[] BOOT_REPORT_DESCRIPTOR = null;
     public static byte[] PROTOCOL_MODE = {0x01};
-    public static byte[] REPORT_REF = {0x00, 0x01};
+    public static byte[] REPORT_REF = {0x00, 0x01}; // ReportID , InputReport
+
+    public static byte[] EMPTY_REPORT = {0x00, 0x00, 0x00, 0x00};
 
     public static BluetoothGattService createHIDService() {
 
@@ -60,8 +63,10 @@ public class HIDProfile {
         BluetoothGattCharacteristic characteristicProtocolMode;
         BluetoothGattCharacteristic characteristicReport;
         BluetoothGattDescriptor descriptorReportRef;
+        BluetoothGattDescriptor descriptorReportClientCharConf;
         BluetoothGattCharacteristic characteristicReportMap;
         BluetoothGattCharacteristic characteristicBootInputRep;
+        BluetoothGattDescriptor descriptorBootInputRepClientCharConf;
         BluetoothGattCharacteristic characteristicHidInfo;
         BluetoothGattCharacteristic characteristicHidControl;
 
@@ -75,6 +80,8 @@ public class HIDProfile {
                         | BluetoothGattCharacteristic.PERMISSION_WRITE);
         characteristicProtocolMode.setValue(PROTOCOL_MODE);
 
+
+        //CHARACTERISTIC REPORT
         characteristicReport = new BluetoothGattCharacteristic(
                 REPORT_CHARACTERISTIC,
                 BluetoothGattCharacteristic.PROPERTY_WRITE
@@ -82,11 +89,20 @@ public class HIDProfile {
                         | BluetoothGattCharacteristic.PROPERTY_READ,
                 BluetoothGattCharacteristic.PERMISSION_READ
                         | BluetoothGattCharacteristic.PERMISSION_WRITE);
+        //DESCRIPTOR REPORT REF
         descriptorReportRef = new BluetoothGattDescriptor(
                 REPORT_REFERENCE_DESCRIPTOR,
-                0);
+                BluetoothGattDescriptor.PERMISSION_READ
+                        | BluetoothGattDescriptor.PERMISSION_WRITE);
         descriptorReportRef.setValue(REPORT_REF);
         characteristicReport.addDescriptor(descriptorReportRef);
+        //DESCRIPTOR CHAR CONFIG
+        descriptorReportClientCharConf = new BluetoothGattDescriptor(
+                CLIENT_CHAR_CONFIG_DESCRIPTOR,
+                BluetoothGattDescriptor.PERMISSION_READ
+                        | BluetoothGattDescriptor.PERMISSION_WRITE);
+        characteristicReport.addDescriptor(descriptorReportClientCharConf);
+
 
         characteristicReportMap = new BluetoothGattCharacteristic(
                 REPORT_MAP_CHARACTERISTIC,
@@ -94,18 +110,26 @@ public class HIDProfile {
                 BluetoothGattCharacteristic.PERMISSION_READ);
         characteristicReportMap.setValue(HID_DESCRIPTOR);
 
+
         characteristicBootInputRep = new BluetoothGattCharacteristic(
                 BOOT_INPUT_REPORT_CHARACTERISTIC,
                 BluetoothGattCharacteristic.PROPERTY_READ
                         | BluetoothGattCharacteristic.PROPERTY_WRITE,
                 BluetoothGattCharacteristic.PERMISSION_READ
                         | BluetoothGattCharacteristic.PERMISSION_WRITE);
+        descriptorBootInputRepClientCharConf = new BluetoothGattDescriptor(
+                CLIENT_CHAR_CONFIG_DESCRIPTOR,
+                BluetoothGattDescriptor.PERMISSION_READ
+                        | BluetoothGattDescriptor.PERMISSION_WRITE);
+        characteristicBootInputRep.addDescriptor(descriptorBootInputRepClientCharConf);
+
 
         characteristicHidInfo = new BluetoothGattCharacteristic(
                 HID_INFORMATION_CHARACTERISTIC,
                 BluetoothGattCharacteristic.PROPERTY_READ,
                 BluetoothGattCharacteristic.PERMISSION_READ);
         characteristicHidInfo.setValue(HID_INFO);
+
 
         characteristicHidControl = new BluetoothGattCharacteristic(
                 HID_CONTROL_POINT_CHARACTERISTIC,

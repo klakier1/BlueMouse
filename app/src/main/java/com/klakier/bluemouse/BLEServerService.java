@@ -23,10 +23,14 @@ import android.os.Looper;
 import android.os.ParcelUuid;
 import android.util.Log;
 
+import java.util.Arrays;
 import java.util.HashSet;
+import java.util.Random;
 import java.util.Set;
+import java.util.UUID;
 
 import static com.klakier.bluemouse.HIDProfile.HID_SERVICE;
+import static com.klakier.bluemouse.HIDProfile.REPORT_CHARACTERISTIC;
 
 public class BLEServerService extends Service {
 
@@ -41,6 +45,9 @@ public class BLEServerService extends Service {
     private BluetoothManager mBluetoothManager;
     private BluetoothGattServer mBluetoothGattServer;
     private BluetoothLeAdvertiser mBluetoothLeAdvertiser;
+
+    private Boolean notificationEnabledReport = false;
+    private Boolean notificationEnabledBootReport = false;
 
     /* Collection of notification subscribers */
     private Set<BluetoothDevice> mRegisteredDevices = new HashSet<>();
@@ -63,6 +70,7 @@ public class BLEServerService extends Service {
         public void onConnectionStateChange(BluetoothDevice device, int status, int newState) {
             if (newState == BluetoothProfile.STATE_CONNECTED) {
                 Log.i(TAG, "BluetoothDevice CONNECTED: " + device);
+                mRegisteredDevices.add(device);
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                 Log.i(TAG, "BluetoothDevice DISCONNECTED: " + device);
                 //Remove device from any active subscriptions
@@ -155,7 +163,7 @@ public class BLEServerService extends Service {
                         requestId,
                         BluetoothGatt.GATT_SUCCESS,
                         0,
-                        null);
+                        HIDProfile.EMPTY_REPORT);
             } else if (HIDProfile.PROTOCOL_MODE_CHARACTERISTIC.equals(characteristic.getUuid())) {
                 Log.d(TAG, "onCharacteristicReadRequest: PROTOCOL_MODE");
                 mBluetoothGattServer.sendResponse(device,
@@ -163,7 +171,7 @@ public class BLEServerService extends Service {
                         BluetoothGatt.GATT_SUCCESS,
                         0,
                         HIDProfile.PROTOCOL_MODE);
-            } else{
+            } else {
                 // Invalid characteristic
                 Log.w(TAG, "onCharacteristicReadRequest: invalid char " + characteristic.getUuid());
                 mBluetoothGattServer.sendResponse(device,
@@ -180,27 +188,47 @@ public class BLEServerService extends Service {
 
             Log.d(TAG, "onDescriptorReadRequest: " + device.toString()
                     + " desc: " + descriptor.getUuid().toString());
-//            if (TimeProfile.CLIENT_CONFIG.equals(descriptor.getUuid())) {
-//                Log.d(TAG, "Config descriptor read");
-//                byte[] returnValue;
-//                if (mRegisteredDevices.contains(device)) {
-//                    returnValue = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE;
-//                } else {
-//                    returnValue = BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE;
-//                }
-//                mBluetoothGattServer.sendResponse(device,
-//                        requestId,
-//                        BluetoothGatt.GATT_FAILURE,
-//                        0,
-//                        returnValue);
-//            } else {
-//                Log.w(TAG, "Unknown descriptor read request");
-//                mBluetoothGattServer.sendResponse(device,
-//                        requestId,
-//                        BluetoothGatt.GATT_FAILURE,
-//                        0,
-//                        null);
-//            }
+            if (HIDProfile.CLIENT_CHAR_CONFIG_DESCRIPTOR.equals(descriptor.getUuid())) {
+                BluetoothGattCharacteristic characteristic = descriptor.getCharacteristic();
+                UUID charUUID = characteristic.getUuid();
+
+                Log.d(TAG, "Config descriptor read of char: " + charUUID.toString());
+                byte[] returnValue;
+                int result = BluetoothGatt.GATT_SUCCESS;
+                if (HIDProfile.BOOT_INPUT_REPORT_CHARACTERISTIC.equals(charUUID)) {
+                    returnValue = notificationEnabledBootReport ?
+                            BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE :
+                            BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE;
+                } else if (HIDProfile.REPORT_CHARACTERISTIC.equals(charUUID)) {
+                    returnValue = notificationEnabledReport ?
+                            BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE :
+                            BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE;
+                } else {
+                    returnValue = null;
+                    result = BluetoothGatt.GATT_FAILURE;
+                    Log.d(TAG, "Unknown characteristic");
+                }
+                Log.d(TAG, "onDescriptorReadRequest: " + returnValue[1] + " result " + result);
+                mBluetoothGattServer.sendResponse(device,
+                        requestId,
+                        result,
+                        0,
+                        returnValue);
+            } else if (HIDProfile.REPORT_REFERENCE_DESCRIPTOR.equals(descriptor.getUuid())) {
+                Log.d(TAG, "Report reference descriptor read");
+                mBluetoothGattServer.sendResponse(device,
+                        requestId,
+                        BluetoothGatt.GATT_SUCCESS,
+                        0,
+                        HIDProfile.REPORT_REF);
+            } else {
+                Log.w(TAG, "Unknown descriptor read request");
+                mBluetoothGattServer.sendResponse(device,
+                        requestId,
+                        BluetoothGatt.GATT_FAILURE,
+                        0,
+                        null);
+            }
         }
 
         @Override
@@ -211,33 +239,46 @@ public class BLEServerService extends Service {
 
             Log.d(TAG, "onDescriptorWriteRequest: " + device.getAddress()
                     + "desc:" + descriptor.getUuid().toString()
-                    + " valLen: " + value.length);
-//            if (TimeProfile.CLIENT_CONFIG.equals(descriptor.getUuid())) {
-//                if (Arrays.equals(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE, value)) {
-//                    Log.d(TAG, "Subscribe device to notifications: " + device);
-//                    mRegisteredDevices.add(device);
-//                } else if (Arrays.equals(BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE, value)) {
-//                    Log.d(TAG, "Unsubscribe device from notifications: " + device);
-//                    mRegisteredDevices.remove(device);
-//                }
-//
-//                if (responseNeeded) {
-//                    mBluetoothGattServer.sendResponse(device,
-//                            requestId,
-//                            BluetoothGatt.GATT_SUCCESS,
-//                            0,
-//                            null);
-//                }
-//            } else {
-//                Log.w(TAG, "Unknown descriptor write request");
-//                if (responseNeeded) {
-//                    mBluetoothGattServer.sendResponse(device,
-//                            requestId,
-//                            BluetoothGatt.GATT_FAILURE,
-//                            0,
-//                            null);
-//                }
-//            }
+                    + " valLen: " + value.length
+                    + " char: " + descriptor.getCharacteristic().getUuid().toString());
+            if (HIDProfile.CLIENT_CHAR_CONFIG_DESCRIPTOR.equals(descriptor.getUuid())) {
+                BluetoothGattCharacteristic characteristic = descriptor.getCharacteristic();
+                UUID charUUID = characteristic.getUuid();
+
+                Boolean notification = false;
+
+                if (Arrays.equals(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE, value)) {
+                    Log.d(TAG, "Subscribe device to notifications: " + device);
+                    notification = true;
+                    new RandomMouseMove().start();
+                } else if (Arrays.equals(BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE, value)) {
+                    Log.d(TAG, "Unsubscribe device from notifications: " + device);
+                    notification = false;
+                }
+
+                if (HIDProfile.BOOT_INPUT_REPORT_CHARACTERISTIC.equals(charUUID)) {
+                    notificationEnabledBootReport = notification;
+                } else if (HIDProfile.REPORT_CHARACTERISTIC.equals(charUUID)) {
+                    notificationEnabledReport = notification;
+                }
+
+                if (responseNeeded) {
+                    mBluetoothGattServer.sendResponse(device,
+                            requestId,
+                            BluetoothGatt.GATT_SUCCESS,
+                            0,
+                            null);
+                }
+            } else {
+                Log.w(TAG, "Unknown descriptor write request");
+                if (responseNeeded) {
+                    mBluetoothGattServer.sendResponse(device,
+                            requestId,
+                            BluetoothGatt.GATT_FAILURE,
+                            0,
+                            null);
+                }
+            }
         }
     };
 
@@ -379,6 +420,35 @@ public class BLEServerService extends Service {
         BLEServerService getService() {
             // Return this instance of LocalService so clients can call public methods
             return BLEServerService.this;
+        }
+    }
+
+    class RandomMouseMove extends Thread {
+        @Override
+        public void run() {
+            int i = 0;
+            byte[] report = {0x00, 0x00, 0x00, 0x00};
+            Random random = new Random();
+            do {
+                if (notificationEnabledReport) {
+                    random.nextBytes(report);
+                    report[0] = 0;
+                    report[3] = 0;
+                    for (BluetoothDevice device : mRegisteredDevices) {
+                        BluetoothGattCharacteristic reportCharacteristic = mBluetoothGattServer
+                                .getService(HID_SERVICE)
+                                .getCharacteristic(REPORT_CHARACTERISTIC);
+                        reportCharacteristic.setValue(report);
+                        mBluetoothGattServer.notifyCharacteristicChanged(device, reportCharacteristic, false);
+                    }
+                }
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+                i++;
+            } while (i < 30);
         }
     }
 }
